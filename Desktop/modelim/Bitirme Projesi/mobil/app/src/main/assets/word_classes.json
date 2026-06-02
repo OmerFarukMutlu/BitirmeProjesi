@@ -1,0 +1,25 @@
+{
+  "classes": [
+    "Anne",
+    "Arkadas",
+    "Baba",
+    "Dur",
+    "Ev",
+    "Evet",
+    "Hayir",
+    "Kardes",
+    "Merhaba",
+    "Nasil",
+    "Nerede",
+    "Ozur-Dilemek",
+    "Tamam",
+    "Telefon",
+    "Tesekkurler",
+    "Tuvalet",
+    "Yemek",
+    "icmek",
+    "iyi",
+    "kotu"
+  ],
+  "num_classes": 20
+}

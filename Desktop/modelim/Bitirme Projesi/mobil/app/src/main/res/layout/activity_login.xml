@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FDFBF9"
+    tools:context=".LoginActivity">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="32dp"
+        android:gravity="center"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <ImageView
+            android:id="@+id/imgLogo"
+            android:layout_width="150dp"
+            android:layout_height="150dp"
+            android:src="@drawable/tid_logo"
+            android:contentDescription="TİD Logo"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="24dp" />
+
+        <TextView
+            android:id="@+id/tvTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Türk İşaret Dili Tanıma"
+            android:textAlignment="center"
+            android:textColor="#334E68"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="40dp" />
+
+        <EditText
+            android:id="@+id/etEmail"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:background="@android:drawable/editbox_background"
+            android:drawableStart="@android:drawable/ic_menu_send"
+            android:drawablePadding="12dp"
+            android:hint="Kullanıcı Adı veya E-posta"
+            android:textColorHint="#99829AB1"
+            android:textColor="#334E68"
+            android:inputType="textEmailAddress"
+            android:paddingStart="16dp"
+            android:layout_marginBottom="16dp" />
+
+        <EditText
+            android:id="@+id/etPassword"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:background="@android:drawable/editbox_background"
+            android:drawableStart="@android:drawable/ic_lock_idle_lock"
+            android:drawablePadding="12dp"
+            android:hint="Şifre"
+            android:textColorHint="#99829AB1"
+            android:textColor="#334E68"
+            android:inputType="textPassword"
+            android:paddingStart="16dp"
+            android:layout_marginBottom="32dp" />
+
+        <Button
+            android:id="@+id/btnLogin"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:backgroundTint="#5482A9"
+            android:text="GİRİŞ YAP"
+            android:textColor="@android:color/white"
+            android:textStyle="bold"
+            android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/tvGoToRegister"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="Hesabınız yok mu? Kayıt Olun"
+            android:textColor="#5482A9"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:padding="8dp"/>
+
+
+
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
