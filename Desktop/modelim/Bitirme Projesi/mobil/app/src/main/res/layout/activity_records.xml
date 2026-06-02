@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0F0F0F"
+    android:padding="16dp"
+    tools:context=".RecordsActivity">
+
+    <TextView
+        android:id="@+id/tvRecordsTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="📜 BULUTTAKİ JSON KAYITLARINIZ"
+        android:textColor="#00BCD4"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:layout_marginTop="16dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" />
+
+    <ScrollView
+        android:id="@+id/svCloudRecords"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="24dp"
+        android:layout_marginBottom="16dp"
+        app:layout_constraintTop_toBottomOf="@id/tvRecordsTitle"
+        app:layout_constraintBottom_toTopOf="@id/btnBackToMenu"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <TextView
+            android:id="@+id/tvCloudJsonOutput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Veriler buluttan yükleniyor..."
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:fontFamily="monospace"
+            android:padding="8dp"/>
+    </ScrollView>
+
+    <Button
+        android:id="@+id/btnBackToMenu"
+        android:layout_width="0dp"
+        android:layout_height="50dp"
+        android:text="⬅️ ANA MENÜYE DÖN"
+        android:textColor="#000000"
+        android:backgroundTint="#00BCD4"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
