@@ -79,6 +79,30 @@ class MainActivity : AppCompatActivity() {
         private const val CAMERA_PERMISSION = 100
     }
 
+    // ✅ Kelime görüntüleme haritası (Türkçe karakterli büyük harf)
+    private val wordDisplayMap = mapOf(
+        "Anne" to "ANNE",
+        "Arkadas" to "ARKADAŞ",
+        "Baba" to "BABA",
+        "Dur" to "DUR",
+        "Ev" to "EV",
+        "Evet" to "EVET",
+        "Hayir" to "HAYIR",
+        "icmek" to "İÇMEK",
+        "iyi" to "İYİ",
+        "Kardes" to "KARDEŞ",
+        "kotu" to "KÖTÜ",
+        "Merhaba" to "MERHABA",
+        "Nasil" to "NASIL",
+        "Nerede" to "NEREDE",
+        "Ozur-Dilemek" to "ÖZÜR DİLEMEK",
+        "Tamam" to "TAMAM",
+        "Telefon" to "TELEFON",
+        "Tesekkurler" to "TEŞEKKÜRLER",
+        "Tuvalet" to "TUVALET",
+        "Yemek" to "YEMEK"
+    )
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -374,7 +398,7 @@ class MainActivity : AppCompatActivity() {
             "space"   -> "BOŞLUK"
             "del"     -> "SİL ⌫"
             "nothing" -> "—"
-            else      -> label
+            else      -> if (currentMode == "word") wordDisplayMap[label] ?: label else label
         }
         val confPercent = "%.0f".format(confidence * 100)
         tvCurrentPrediction.text = "🔍 $displayLabel (%$confPercent)"
@@ -438,13 +462,15 @@ class MainActivity : AppCompatActivity() {
             }
             else -> {
                 if (currentMode == "word") {
-                    kelimeHafizasi += (if (kelimeHafizasi.isNotEmpty()) " " else "") + label
+                    // ✅ Kelime modunda Türkçe karakterli büyük harf yazma
+                    val displayWord = wordDisplayMap[label] ?: label.uppercase()
+                    kelimeHafizasi += (if (kelimeHafizasi.isNotEmpty()) " " else "") + displayWord
                 } else {
                     kelimeHafizasi += label
                 }
                 tvOlusturulanKelime.text = kelimeHafizasi
                 svKelimeScroll.post { svKelimeScroll.fullScroll(ScrollView.FOCUS_DOWN) }
-                showWriteFeedback("✅ $label yazıldı!")
+                showWriteFeedback("✅ $displayLabel yazıldı!")
             }
         }
 
@@ -501,7 +527,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        super.onDestroy()
         super.onDestroy()
         cameraExecutor.shutdown()
         if (::featureExtractor.isInitialized) featureExtractor.close()
