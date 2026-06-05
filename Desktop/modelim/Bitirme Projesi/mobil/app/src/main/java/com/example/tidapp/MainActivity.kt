@@ -3,11 +3,11 @@ package com.example.tidapp
 import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.graphics.Matrix
 import android.os.Bundle
 import android.util.Log
 import android.widget.Button
-import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
@@ -36,8 +36,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnWord: Button
     private lateinit var btnNumber: Button
 
-    private lateinit var llAdayHarflerContainer: LinearLayout
+    private lateinit var tvCurrentPrediction: TextView
+    private lateinit var tvVoteStatus: TextView
     private lateinit var tvOlusturulanKelime: TextView
+    private lateinit var svKelimeScroll: ScrollView
 
     private lateinit var btnDeleteLastChar: Button
     private lateinit var btnSaveWord: Button
@@ -57,18 +59,20 @@ class MainActivity : AppCompatActivity() {
     private lateinit var featureExtractor: HandFeatureExtractor
 
     private lateinit var cameraExecutor: ExecutorService
-    private var currentMode = "letter"   // "letter" | "word" | "number"
+    private var currentMode = "letter"
 
-    private val PREDICT_INTERVAL_MS    = 800L
-    private val CONFIDENCE_THRESHOLD   = 0.55f
+    private val PREDICT_INTERVAL_MS    = 500L
+    private val CONFIDENCE_THRESHOLD   = 0.65f
+    private val VOTE_SIZE              = 5
+    private val VOTE_MAJORITY          = 3
+    private val COOLDOWN_MS            = 3000L
+    private val DEL_SPACE_THRESHOLD    = 0.75f
+
     private var lastPredictTime        = 0L
     private var isProcessing           = false
+    private var lastWriteTime          = 0L
 
-    private var sonButonEtkilesimZamani = 0L
-    private val BUTON_TUTMA_SURESI_MS   = 8000L
-
-    private var kameraMolaBitisZamani   = 0L
-    private val KAMERA_MOLA_SURESI_MS   = 2500L
+    private val predictionHistory = mutableListOf<String>()
 
     companion object {
         private const val TAG              = "TIDApp"
@@ -79,17 +83,19 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        previewView            = findViewById(R.id.previewView)
-        btnLetter              = findViewById(R.id.btnLetter)
-        btnWord                = findViewById(R.id.btnWord)
-        btnNumber              = findViewById(R.id.btnNumber)
-        llAdayHarflerContainer = findViewById(R.id.llAdayHarflerContainer)
-        tvOlusturulanKelime    = findViewById(R.id.tvOluşturulanKelime)
-        btnDeleteLastChar      = findViewById(R.id.btnDeleteLastChar)
-        btnSaveWord            = findViewById(R.id.btnSaveWord)
-        btnExportCloudJson     = findViewById(R.id.btnExportCloudJson)
-        tvSavedRecords         = findViewById(R.id.tvSavedRecords)
-        svSavedList            = findViewById(R.id.svSavedList)
+        previewView         = findViewById(R.id.previewView)
+        btnLetter           = findViewById(R.id.btnLetter)
+        btnWord             = findViewById(R.id.btnWord)
+        btnNumber           = findViewById(R.id.btnNumber)
+        tvCurrentPrediction = findViewById(R.id.tvCurrentPrediction)
+        tvVoteStatus        = findViewById(R.id.tvVoteStatus)
+        tvOlusturulanKelime = findViewById(R.id.tvOluşturulanKelime)
+        svKelimeScroll      = findViewById(R.id.svKelimeScroll)
+        btnDeleteLastChar   = findViewById(R.id.btnDeleteLastChar)
+        btnSaveWord         = findViewById(R.id.btnSaveWord)
+        btnExportCloudJson  = findViewById(R.id.btnExportCloudJson)
+        tvSavedRecords      = findViewById(R.id.tvSavedRecords)
+        svSavedList         = findViewById(R.id.svSavedList)
 
         btnLetter.setOnClickListener { setMode("letter") }
         btnWord.setOnClickListener   { setMode("word") }
@@ -97,10 +103,16 @@ class MainActivity : AppCompatActivity() {
 
         btnDeleteLastChar.setOnClickListener {
             if (kelimeHafizasi.isNotEmpty()) {
-                kelimeHafizasi = kelimeHafizasi.substring(0, kelimeHafizasi.length - 1)
+                if (currentMode == "word") {
+                    kelimeHafizasi = kelimeHafizasi.trimEnd()
+                    val lastSpace = kelimeHafizasi.lastIndexOf(" ")
+                    kelimeHafizasi = if (lastSpace >= 0) kelimeHafizasi.substring(0, lastSpace) else ""
+                } else {
+                    kelimeHafizasi = kelimeHafizasi.substring(0, kelimeHafizasi.length - 1)
+                }
                 tvOlusturulanKelime.text = kelimeHafizasi
+                svKelimeScroll.post { svKelimeScroll.fullScroll(ScrollView.FOCUS_DOWN) }
             }
-            sonButonEtkilesimZamani = System.currentTimeMillis()
         }
 
         btnSaveWord.setOnClickListener {
@@ -110,12 +122,10 @@ class MainActivity : AppCompatActivity() {
                 guncelleEkranListesi()
                 kelimeHafizasi = ""
                 tvOlusturulanKelime.text = ""
-                sonButonEtkilesimZamani = 0L
-                kameraMolaBitisZamani = 0L
-                llAdayHarflerContainer.removeAllViews()
+                predictionHistory.clear()
                 svSavedList.post { svSavedList.fullScroll(ScrollView.FOCUS_DOWN) }
             } else {
-                Toast.makeText(this, "⚠️ Önce kelime oluşturup listeye ekleyin!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "⚠️ Önce el işareti yaparak metin oluşturun!", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -123,12 +133,12 @@ class MainActivity : AppCompatActivity() {
             val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
 
             if (currentUserId == null) {
-                Toast.makeText(this, "❌ Oturum Açık Kullanıcı Bulunamadı! Tekrar Giriş Yapın.", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "❌ Oturum Açık Kullanıcı Bulunamadı!", Toast.LENGTH_LONG).show()
                 return@setOnClickListener
             }
 
             if (kaydedilenMetinler.isEmpty()) {
-                Toast.makeText(this, "⚠️ Buluta gönderilecek veri yok! Önce disketle (💾) ekleyin.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "⚠️ Buluta gönderilecek veri yok!", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
@@ -145,7 +155,7 @@ class MainActivity : AppCompatActivity() {
 
                 databaseRef.child(currentUserId).push().setValue(dataMap)
                     .addOnSuccessListener {
-                        Toast.makeText(this, "✅ Veriler JSON yapısında buluta başarıyla yedeklendi!", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this, "✅ Veriler buluta yedeklendi!", Toast.LENGTH_LONG).show()
                         kaydedilenMetinler.clear()
                         tvSavedRecords.text = ""
                     }
@@ -185,9 +195,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadModels() {
         try {
-            // ✅ Harf modeli: 2 EL (156-dim)
             letterInterpreter = Interpreter(loadModelFile("letter_model_2hands.tflite"))
-            // Kelime ve sayı: TEK EL (78-dim) — eski modeller
             wordInterpreter   = Interpreter(loadModelFile("word_model.tflite"))
             numberInterpreter = Interpreter(loadModelFile("number_model.tflite"))
 
@@ -197,7 +205,7 @@ class MainActivity : AppCompatActivity() {
 
             featureExtractor = HandFeatureExtractor(this)
 
-            Log.d(TAG, "✅ Modeller yüklendi (Harf: 2 el, Kelime/Sayı: tek el)")
+            Log.d(TAG, "✅ Modeller yüklendi")
             Toast.makeText(this, "✅ Modeller yüklendi", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Log.e(TAG, "❌ Model yükleme hatası: ${e.message}", e)
@@ -214,11 +222,9 @@ class MainActivity : AppCompatActivity() {
     private fun loadClasses(fileName: String): List<String> {
         val json = assets.open(fileName).bufferedReader().readText()
         return try {
-            // Önce düz JSON array dene: ["A", "B", "C", ...]
             val arr = JSONArray(json)
             (0 until arr.length()).map { arr.getString(it) }
         } catch (e: Exception) {
-            // Eski format: {"classes": ["A", "B", ...]}
             val obj = JSONObject(json)
             val arr = obj.getJSONArray("classes")
             (0 until arr.length()).map { arr.getString(it) }
@@ -289,21 +295,48 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun predict(bitmap: Bitmap) {
-        // ✅ Moda göre feature boyutu ve extractor seç
         val features: FloatArray?
         val featureSize: Int
 
         if (currentMode == "letter") {
-            // Harf modu: 2 el → 156-dim
             features = featureExtractor.extract2Hands(bitmap)
             featureSize = 156
         } else {
-            // Kelime/Sayı modu: tek el → 78-dim
             features = featureExtractor.extract(bitmap)
             featureSize = 78
         }
 
-        if (features == null) return
+        if (features == null) {
+            runOnUiThread {
+                tvCurrentPrediction.text = "🔍 El gösterin..."
+                tvCurrentPrediction.setTextColor(Color.parseColor("#AAAAAA"))
+                tvVoteStatus.text = ""
+            }
+            return
+        }
+
+        if (currentMode != "letter") {
+            val features2h = featureExtractor.extract2Hands(bitmap)
+            if (features2h != null) {
+                val letterInput = ByteBuffer.allocateDirect(156 * 4).apply {
+                    order(ByteOrder.nativeOrder())
+                    features2h.forEach { putFloat(it) }
+                }
+                val letterOutput = Array(1) { FloatArray(letterClasses.size) }
+                letterInterpreter.run(letterInput, letterOutput)
+
+                val letterBestIdx = letterOutput[0].indices.maxByOrNull { letterOutput[0][it] } ?: -1
+                if (letterBestIdx >= 0) {
+                    val letterLabel = letterClasses[letterBestIdx]
+                    val letterConf = letterOutput[0][letterBestIdx]
+
+                    if ((letterLabel == "del" || letterLabel == "space") && letterConf >= DEL_SPACE_THRESHOLD) {
+                        runOnUiThread { handlePrediction(letterLabel, letterConf) }
+                        return
+                    }
+                }
+            }
+        }
 
         val interpreter = when (currentMode) {
             "word"   -> wordInterpreter
@@ -325,61 +358,111 @@ class MainActivity : AppCompatActivity() {
         interpreter.run(input, output)
         val proba = output[0]
 
-        val top3 = proba.indices
-            .sortedByDescending { proba[it] }
-            .take(3)
-            .map { Pair(classes[it], proba[it]) }
+        val bestIdx = proba.indices.maxByOrNull { proba[it] } ?: return
+        val bestLabel = classes[bestIdx]
+        val bestConf = proba[bestIdx]
 
-        runOnUiThread { createAdayHarfButonlari(top3) }
+        runOnUiThread {
+            handlePrediction(bestLabel, bestConf)
+        }
     }
 
-    private fun createAdayHarfButonlari(top3: List<Pair<String, Float>>) {
-        val simdi = System.currentTimeMillis()
-        if (simdi < kameraMolaBitisZamani) return
-        if (simdi - sonButonEtkilesimZamani < BUTON_TUTMA_SURESI_MS) return
+    private fun handlePrediction(label: String, confidence: Float) {
+        val now = System.currentTimeMillis()
 
-        llAdayHarflerContainer.removeAllViews()
-        if (top3.isEmpty()) return
+        val displayLabel = when (label.lowercase()) {
+            "space"   -> "BOŞLUK"
+            "del"     -> "SİL ⌫"
+            "nothing" -> "—"
+            else      -> label
+        }
+        val confPercent = "%.0f".format(confidence * 100)
+        tvCurrentPrediction.text = "🔍 $displayLabel (%$confPercent)"
 
-        for (aday in top3) {
-            val btnAday = Button(this).apply {
-                text = if (aday.first.lowercase() == "space") "[ BOŞLUK ]"
-                else "${aday.first} (%${"%.0f".format(aday.second * 100)})"
-                textSize = 13f
-                isAllCaps = false
-                setPadding(24, 0, 24, 0)
-                setTextColor(android.graphics.Color.WHITE)
-                backgroundTintList = android.content.res.ColorStateList.valueOf(
-                    android.graphics.Color.parseColor("#00BCD4"))
+        tvCurrentPrediction.setTextColor(
+            if (confidence >= CONFIDENCE_THRESHOLD) Color.parseColor("#4CAF50")
+            else Color.parseColor("#FF9800")
+        )
 
-                val params = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.MATCH_PARENT)
-                params.setMargins(0, 0, 16, 0)
-                layoutParams = params
+        if (label.lowercase() == "nothing") {
+            tvVoteStatus.text = "Bekleniyor..."
+            return
+        }
 
-                setOnClickListener {
-                    if (aday.first.lowercase() == "space") {
-                        kelimeHafizasi += " "
+        if (confidence < CONFIDENCE_THRESHOLD) {
+            tvVoteStatus.text = "Güven düşük (%$confPercent < %65)"
+            return
+        }
+
+        predictionHistory.add(label)
+        if (predictionHistory.size > VOTE_SIZE) {
+            predictionHistory.removeAt(0)
+        }
+
+        val voteCount = predictionHistory.count { it == label }
+        val dots = buildString {
+            for (i in 0 until VOTE_SIZE) {
+                append(if (i < voteCount) "●" else "○")
+            }
+        }
+        tvVoteStatus.text = "$displayLabel: $dots ($voteCount/$VOTE_SIZE)"
+
+        if (voteCount < VOTE_MAJORITY) return
+
+        if (now - lastWriteTime < COOLDOWN_MS) {
+            tvVoteStatus.text = "⏳ Bekleme... (${(COOLDOWN_MS - (now - lastWriteTime)) / 1000}sn)"
+            return
+        }
+
+        when (label.lowercase()) {
+            "del" -> {
+                if (kelimeHafizasi.isNotEmpty()) {
+                    if (currentMode == "word") {
+                        kelimeHafizasi = kelimeHafizasi.trimEnd()
+                        val lastSpace = kelimeHafizasi.lastIndexOf(" ")
+                        kelimeHafizasi = if (lastSpace >= 0) kelimeHafizasi.substring(0, lastSpace) else ""
+                        showWriteFeedback("⌫ Kelime silindi")
                     } else {
-                        if (currentMode == "word") {
-                            kelimeHafizasi += (if (kelimeHafizasi.isNotEmpty()) " " else "") + aday.first
-                        } else {
-                            kelimeHafizasi += aday.first
-                        }
+                        kelimeHafizasi = kelimeHafizasi.substring(0, kelimeHafizasi.length - 1)
+                        showWriteFeedback("⌫ Silindi")
                     }
                     tvOlusturulanKelime.text = kelimeHafizasi
-                    llAdayHarflerContainer.removeAllViews()
-                    kameraMolaBitisZamani = System.currentTimeMillis() + KAMERA_MOLA_SURESI_MS
-                    sonButonEtkilesimZamani = 0L
+                    svKelimeScroll.post { svKelimeScroll.fullScroll(ScrollView.FOCUS_DOWN) }
                 }
             }
-            llAdayHarflerContainer.addView(btnAday)
+            "space" -> {
+                kelimeHafizasi += " "
+                tvOlusturulanKelime.text = kelimeHafizasi
+                svKelimeScroll.post { svKelimeScroll.fullScroll(ScrollView.FOCUS_DOWN) }
+                showWriteFeedback("⎵ Boşluk eklendi")
+            }
+            else -> {
+                if (currentMode == "word") {
+                    kelimeHafizasi += (if (kelimeHafizasi.isNotEmpty()) " " else "") + label
+                } else {
+                    kelimeHafizasi += label
+                }
+                tvOlusturulanKelime.text = kelimeHafizasi
+                svKelimeScroll.post { svKelimeScroll.fullScroll(ScrollView.FOCUS_DOWN) }
+                showWriteFeedback("✅ $label yazıldı!")
+            }
         }
+
+        lastWriteTime = now
+        predictionHistory.clear()
+    }
+
+    private fun showWriteFeedback(message: String) {
+        tvVoteStatus.text = message
+        tvVoteStatus.setTextColor(Color.parseColor("#4CAF50"))
+        tvVoteStatus.postDelayed({
+            tvVoteStatus.setTextColor(Color.parseColor("#AAAAAA"))
+        }, 1000)
     }
 
     private fun setMode(mode: String) {
         currentMode = mode
+        predictionHistory.clear()
 
         val active   = "#00BCD4"
         val inactive = "#555555"
@@ -387,23 +470,22 @@ class MainActivity : AppCompatActivity() {
         val inactiveText = "#FFFFFF"
 
         btnLetter.backgroundTintList = android.content.res.ColorStateList.valueOf(
-            android.graphics.Color.parseColor(if (mode == "letter") active else inactive))
+            Color.parseColor(if (mode == "letter") active else inactive))
         btnLetter.setTextColor(
-            android.graphics.Color.parseColor(if (mode == "letter") activeText else inactiveText))
+            Color.parseColor(if (mode == "letter") activeText else inactiveText))
 
         btnWord.backgroundTintList = android.content.res.ColorStateList.valueOf(
-            android.graphics.Color.parseColor(if (mode == "word") active else inactive))
+            Color.parseColor(if (mode == "word") active else inactive))
         btnWord.setTextColor(
-            android.graphics.Color.parseColor(if (mode == "word") activeText else inactiveText))
+            Color.parseColor(if (mode == "word") activeText else inactiveText))
 
         btnNumber.backgroundTintList = android.content.res.ColorStateList.valueOf(
-            android.graphics.Color.parseColor(if (mode == "number") active else inactive))
+            Color.parseColor(if (mode == "number") active else inactive))
         btnNumber.setTextColor(
-            android.graphics.Color.parseColor(if (mode == "number") activeText else inactiveText))
+            Color.parseColor(if (mode == "number") activeText else inactiveText))
 
-        sonButonEtkilesimZamani = 0L
-        kameraMolaBitisZamani = 0L
-        llAdayHarflerContainer.removeAllViews()
+        tvCurrentPrediction.text = "🔍 El gösterin..."
+        tvVoteStatus.text = ""
     }
 
     override fun onRequestPermissionsResult(
@@ -419,6 +501,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        super.onDestroy()
         super.onDestroy()
         cameraExecutor.shutdown()
         if (::featureExtractor.isInitialized) featureExtractor.close()

@@ -18,6 +18,40 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
+    <!-- Kamera üzerinde tahmin göstergesi -->
+    <LinearLayout
+        android:id="@+id/llPredictionOverlay"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#AA000000"
+        android:padding="10dp"
+        app:layout_constraintBottom_toTopOf="@id/bottomPanel"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <TextView
+            android:id="@+id/tvCurrentPrediction"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🔍 El gösterin..."
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:gravity="center" />
+
+        <TextView
+            android:id="@+id/tvVoteStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="#AAAAAA"
+            android:textSize="13sp"
+            android:gravity="center"
+            android:layout_marginTop="2dp" />
+
+    </LinearLayout>
+
     <LinearLayout
         android:id="@+id/bottomPanel"
         android:layout_width="0dp"
@@ -34,7 +68,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- ÜÇ MOD BUTONU: HARF / KELİME / SAYI -->
+        <!-- ÜÇ MOD BUTONU -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="40dp"
@@ -79,38 +113,33 @@
                 android:textColor="#FFFFFF" />
         </LinearLayout>
 
-        <HorizontalScrollView
-            android:id="@+id/svAdaylar"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginTop="6dp"
-            android:scrollbars="none">
-            <LinearLayout
-                android:id="@+id/llAdayHarflerContainer"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:gravity="center_vertical"
-                android:orientation="horizontal" />
-        </HorizontalScrollView>
-
+        <!-- ✅ Kaydırılabilir metin alanı + kontrol butonları -->
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="45dp"
+            android:layout_height="65dp"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:layout_marginTop="4dp">
+            android:layout_marginTop="8dp">
 
-            <TextView
-                android:id="@+id/tvOluşturulanKelime"
+            <ScrollView
+                android:id="@+id/svKelimeScroll"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:text=""
-                android:textColor="#FFFFFF"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                android:hint="Harf seçin..."
-                android:textColorHint="#444466" />
+                android:fillViewport="true">
+
+                <TextView
+                    android:id="@+id/tvOluşturulanKelime"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text=""
+                    android:textColor="#FFFFFF"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:hint="El işareti yapın..."
+                    android:textColorHint="#444466" />
+
+            </ScrollView>
 
             <Button
                 android:id="@+id/btnDeleteLastChar"
